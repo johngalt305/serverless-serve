@@ -103,7 +103,7 @@ module.exports = function(ServerlessPlugin, serverlessPath) {
 
     _registerLambdas() {
       let _this = this;
-      let functions = this.S.getProject().getAllFunctions();
+      let functions = this.S.state.getFunctions();
 
       _this.handlers = {};
 
@@ -134,9 +134,9 @@ module.exports = function(ServerlessPlugin, serverlessPath) {
              responses: [Object] } ] }
        */
 
-        if( fun.getRuntime().getName() == 'nodejs' ) {
+        if( fun.getRuntime() == 'nodejs' ) {
           let handlerParts = fun.handler.split('/').pop().split('.');
-          let handlerPath = path.join(fun.getFullPath(), handlerParts[0] + '.js');
+          let handlerPath = path.join(fun._config.fullPath, handlerParts[0] + '.js');
           let handler;
 
           _this.handlers[ fun.handler ] = {
@@ -179,15 +179,21 @@ module.exports = function(ServerlessPlugin, serverlessPath) {
                 let event = {};
                 let prop;
 
+                if (!event.body) {
+                  event.body = {};
+                }
                 for( prop in req.body ) {
                   if( req.body.hasOwnProperty( prop ) ){
-                    event[ prop ] = req.body[ prop ];
+                    event[ prop ] = event.body[ prop ] = req.body[ prop ];
                   }
                 }
 
+                if (!event.params) {
+                  event.params = {};
+                }
                 for( prop in req.params ) {
                   if( req.params.hasOwnProperty( prop ) ){
-                    event[ prop ] = req.params[ prop ];
+                    event[ prop ] = event.params[ prop ] = req.params[ prop ];
                   }
                 }
 
@@ -196,6 +202,8 @@ module.exports = function(ServerlessPlugin, serverlessPath) {
                     event[ prop ] = req.query[ prop ];
                   }
                 }
+
+                event[ 'token' ] = req.get('Authorization');
 
                 if( !handler ) {
                   try {
@@ -266,14 +274,12 @@ module.exports = function(ServerlessPlugin, serverlessPath) {
         SCli.log( "Serverless API Gateway simulator listening on http://localhost:" + _this.evt.port );
       });
     }
-    
-    _registerBabel() {
-      let _this = this;
-      return BbPromise.try(function(){
-        let project = _this.S.getProject();
-        const custom = project.custom[ 'serverless-serve' ];
 
-        if( custom && custom.babelOptions ) require("babel-register")( custom.babelOptions );
+    _registerBabel() {
+      return new this.S.classes.Project(this.S).load().then(project => { // Promise to load project
+        const custom = project.custom['serverless-serve'];
+
+        if (custom && custom.babelOptions) require("babel-register")(custom.babelOptions);
       });
     }
 
