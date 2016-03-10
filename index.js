@@ -197,9 +197,12 @@ module.exports = function(ServerlessPlugin, serverlessPath) {
                   }
                 }
 
+                if (!event.query) {
+                  event.query = {};
+                }
                 for( prop in req.query ) {
                   if( req.query.hasOwnProperty( prop ) ){
-                    event[ prop ] = req.query[ prop ];
+                    event[ prop ] = event.query[ prop ] = req.query[ prop ];
                   }
                 }
 
